@@ -36,11 +36,11 @@ void freeMatrix(float **M){
 }
 
 // read the jpeg file
-void readJPEG(FILE *fp, float **M, int N, int M){
+void readJPEG(FILE *fp, float **M){
    // have to look into this
 }
 
-double butterfly(float i1, float i2, float c1, float c2)
+Output butterfly(float i1, float i2, float c1, float c2)
 {
     float o1 = (i1+i2)*c1; // 16 bits
     float o2 = (i1-i2)*c2; // 16 bits
@@ -52,7 +52,7 @@ double butterfly(float i1, float i2, float c1, float c2)
     return o;
 }
 
-double reflector(float i1, float i2)
+Output reflector(float i1, float i2)
 {
     float o1 = i1 + i2;
     float o2 = i1 - i2;
@@ -64,7 +64,7 @@ double reflector(float i1, float i2)
     return o;
 }
 
-double rotators(int i1, int i2, int n)
+Output rotators(float i1, float i2, float n)
 {
     float k1 = constants[n];
     float k2 = constants[n+1];
@@ -79,24 +79,25 @@ double rotators(int i1, int i2, int n)
     return o;
 }
 
-float scaleup (int i)
+float scaleup (float i)
 {
     return root2 * i;
 }
 
 // calculates the 8-point 1D DCT
-void dct(float *row){
+// Input : pointer to array of 8 elements.
+void dct(float *x){
     Output o;
     
     //local parameters
-    float x0 = &row[0];
-    float x1 = &row[1];
-    float x2 = &row[2];
-    float x3 = &row[3];
-    float x4 = &row[4];
-    float x5 = &row[5];
-    float x6 = &row[6];
-    float x7 = &row[7];
+    float x0 = &x[0];
+    float x1 = &x[1];
+    float x2 = &x[2];
+    float x3 = &x[3];
+    float x4 = &x[4];
+    float x5 = &x[5];
+    float x6 = &x[6];
+    float x7 = &x[7];
     
     // stage 1
     o = reflector(x0, x7);
@@ -148,20 +149,20 @@ void dct(float *row){
     x6 = scaleup(x6);
     
     //updating the memory
-    &row[0] = x0;
-    &row[1] = x1;
-    &row[2] = x2;
-    &row[3] = x3;
-    &row[4] = x4;
-    &row[5] = x5;
-    &row[6] = x6;
-    &row[7] = x7;
+    &x[0] = x0;
+    &x[1] = x1;
+    &x[2] = x2;
+    &x[3] = x3;
+    &x[4] = x4;
+    &x[5] = x5;
+    &x[6] = x6;
+    &x[7] = x7;
 }
 
 
 int main(int argc, char *argv[])
 {
-    float testBlockA[8][8] = { {255, 255, 255, 255, 255, 255, 255, 255},
+    float testBlock[8][8] = { {255, 255, 255, 255, 255, 255, 255, 255},
                              {255, 255, 255, 255, 255, 255, 255, 255},
                              {255, 255, 255, 255, 255, 255, 255, 255},
                              {255, 255, 255, 255, 255, 255, 255, 255},
@@ -172,7 +173,7 @@ int main(int argc, char *argv[])
     float **Matrix = callocMatrix(8,8);
     for (int i=0; i<8; i++){
         for (int j=0; j<8; j++){
-            Matrix[i][j] = testBlockA[i][j];
+            Matrix[i][j] = testBlock[i][j];
         }
     }
     
