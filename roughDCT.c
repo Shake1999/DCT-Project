@@ -19,11 +19,10 @@ struct Output{
 };
 
 // initialize and allocate memory to a matrix of shape (row * col).
-float **callocMatrix(int row, int col){
-    float **M = calloc(row, sizeof(float));
-    float *p = calloc(row*col, sizeof(float));
-    for (int i=0; i<row;i++){
-        M[i] = &p[i*col];
+float **createMatrix(int row, int col){
+    float **M = (float **)malloc(row * sizeof(float *));
+    for (int i=0; i<row; i++){
+        M[i] = (float *)malloc(col * sizeof(float));
     }
     return M;
 }
@@ -87,18 +86,18 @@ float scaleup (float i)
 
 // calculates the 8-point 1D DCT
 // Input : pointer to array of 8 elements.
-void dct(float **x){
+void dct(float *x){
     struct Output o;
     
     //local parameters
-    float x0 = (*x)[0];
-    float x1 = (*x)[1];
-    float x2 = (*x)[2];
-    float x3 = (*x)[3];
-    float x4 = (*x)[4];
-    float x5 = (*x)[5];
-    float x6 = (*x)[6];
-    float x7 = (*x)[7];
+    float x0 = x[0];
+    float x1 = x[1];
+    float x2 = x[2];
+    float x3 = x[3];
+    float x4 = x[4];
+    float x5 = x[5];
+    float x6 = x[6];
+    float x7 = x[7];
     
     // stage 1
     o = reflector(x0, x7);
@@ -150,16 +149,24 @@ void dct(float **x){
     x6 = scaleup(x6);
     
     //updating the memory
-    (*x)[0] = x0;
-    (*x)[1] = x1;
-    (*x)[2] = x2;
-    (*x)[3] = x3;
-    (*x)[4] = x4;
-    (*x)[5] = x5;
-    (*x)[6] = x6;
-    (*x)[7] = x7;
+    x[0] = x0;
+    x[1] = x1;
+    x[2] = x2;
+    x[3] = x3;
+    x[4] = x4;
+    x[5] = x5;
+    x[6] = x6;
+    x[7] = x7;
 }
 
+void printMatrix(float **x){
+    for (int i=0; i<8; i++){
+        for (int j=0; j<8;j++){
+            printf("%.3f  ", x[i][j]);
+        }
+        printf("\n");
+    }
+}
 
 int main(int argc, char *argv[])
 {
@@ -171,30 +178,38 @@ int main(int argc, char *argv[])
                              {255, 255, 255, 255, 255, 255, 255, 255},
                              {255, 255, 255, 255, 255, 255, 255, 255},
                             {255, 255, 255, 255, 255, 255, 255, 255} };
-    float **Matrix = callocMatrix(8,8);
+    
+    float **Matrix = createMatrix(8,8);
     for (int i=0; i<8; i++){
         for (int j=0; j<8; j++){
             Matrix[i][j] = testBlock[i][j];
         }
     }
     
+    printMatrix(Matrix);
+    printf("\n\n After DCT Calculation \n\n");
+    
     // row separation
     for (int i=0; i<8; i++){
-        dct(&Matrix[i]);
+        dct(Matrix[i]);
     }
+    
     // column separation
     for (int j=0; j<8; j++){
-        float *column = calloc(8, sizeof(float));
+        float *column = (float *)malloc(8 * sizeof(float));
         for (int i=0; i<8; i++){
             column[i] = Matrix[i][j];
         }
-        dct(&column);
+        dct(column);
         for (int i=0; i<8; i++){
-            (*Matrix)[i*j] = column[i];
+            Matrix[i][j] = column[i];
         }
         free(column);
     }
+    
     //print result. Needs to be done.
+    printMatrix(Matrix);
+    
     // free the memory.
     freeMatrix(Matrix);
 }
