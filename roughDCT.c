@@ -10,7 +10,8 @@
 // for C1   c1cos 0.99999413            c1sin 0.00342694
 // for C3   c3cos 0.99994715            c3sin 0.01028066
 // for C6   root(2)*c6cos 1.41391462    root(2)*c6sin 0.02907655
-#define constants [ null, 0.99999413, 0.00342694, 0.99994715, 0.01028066, null, 1.41391462591, 0.02907655611]
+//#define constants { 0, 0.99999413, 0.00342694, 0.99994715, 0.01028066, 0, 1.41391462591, 0.02907655611}
+const float constants[8] = { 0, 0.9999, 0.0034, 0.9999, 0.0102, 0, 1.4139, 0.0290};
 
 // to make it easier to return 2 values.
 struct Output{
@@ -40,31 +41,31 @@ void readJPEG(FILE *fp, float **M){
    // have to look into this
 }
 
-Output butterfly(float i1, float i2, float c1, float c2)
+struct Output butterfly(float i1, float i2, float c1, float c2)
 {
     float o1 = (i1+i2)*c1; // 16 bits
     float o2 = (i1-i2)*c2; // 16 bits
 
-    Output o;
+    struct Output o;
     o.o1 = o1;
     o.o2 = o2;
     
     return o;
 }
 
-Output reflector(float i1, float i2)
+struct Output reflector(float i1, float i2)
 {
     float o1 = i1 + i2;
     float o2 = i1 - i2;
     
-    Output o;
+    struct Output o;
     o.o1 = o1;
     o.o2 = o2;
     
     return o;
 }
 
-Output rotators(float i1, float i2, float n)
+struct Output rotators(float i1, float i2, int n)
 {
     float k1 = constants[n];
     float k2 = constants[n+1];
@@ -72,7 +73,7 @@ Output rotators(float i1, float i2, float n)
     float o1 = k1*((float)i1) + k2*((float)i2);
     float o2 = -k2*((float)i1) + k1*((float)i2);
     
-    Output o;
+    struct Output o;
     o.o1 = o1;
     o.o2 = o2;
     
@@ -86,18 +87,18 @@ float scaleup (float i)
 
 // calculates the 8-point 1D DCT
 // Input : pointer to array of 8 elements.
-void dct(float *x){
-    Output o;
+void dct(float **x){
+    struct Output o;
     
     //local parameters
-    float x0 = &x[0];
-    float x1 = &x[1];
-    float x2 = &x[2];
-    float x3 = &x[3];
-    float x4 = &x[4];
-    float x5 = &x[5];
-    float x6 = &x[6];
-    float x7 = &x[7];
+    float x0 = (*x)[0];
+    float x1 = (*x)[1];
+    float x2 = (*x)[2];
+    float x3 = (*x)[3];
+    float x4 = (*x)[4];
+    float x5 = (*x)[5];
+    float x6 = (*x)[6];
+    float x7 = (*x)[7];
     
     // stage 1
     o = reflector(x0, x7);
@@ -149,14 +150,14 @@ void dct(float *x){
     x6 = scaleup(x6);
     
     //updating the memory
-    &x[0] = x0;
-    &x[1] = x1;
-    &x[2] = x2;
-    &x[3] = x3;
-    &x[4] = x4;
-    &x[5] = x5;
-    &x[6] = x6;
-    &x[7] = x7;
+    (*x)[0] = x0;
+    (*x)[1] = x1;
+    (*x)[2] = x2;
+    (*x)[3] = x3;
+    (*x)[4] = x4;
+    (*x)[5] = x5;
+    (*x)[6] = x6;
+    (*x)[7] = x7;
 }
 
 
@@ -189,11 +190,11 @@ int main(int argc, char *argv[])
         }
         dct(&column);
         for (int i=0; i<8; i++){
-            &Matrix[i][j] = column[i];
+            (*Matrix)[i*j] = column[i];
         }
         free(column);
     }
     //print result. Needs to be done.
     // free the memory.
-    freeMatrix(Matrix)
+    freeMatrix(Matrix);
 }
