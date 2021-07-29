@@ -20,7 +20,8 @@ struct Output{
 // initialize and allocate memory to a matrix of shape (row * col).
 float **createMatrix(int row, int col){
     float **M = (float **)malloc(row * sizeof(float *));
-    for (int i=0; i<row; i++){
+    int i;
+    for (i=0; i<row; i++){
         M[i] = (float *)malloc(col * sizeof(float));
     }
     return M;
@@ -28,7 +29,8 @@ float **createMatrix(int row, int col){
 
 // free the pointers.
 void freeMatrix(float **M){
-    for (int i=0; i<8; i++){
+    int i;
+    for (i=0; i<8; i++){
         free(M[i]);
     }
     free(M);
@@ -159,8 +161,10 @@ void dct(float *x){
 }
 
 void printMatrix(float **x){
-    for (int i=0; i<8; i++){
-        for (int j=0; j<8;j++){
+    int i;
+    int j;
+    for (i=0; i<8; i++){
+        for (j=0; j<8;j++){
             printf("%.3f  ", x[i][j]);
         }
         printf("\n");
@@ -169,6 +173,8 @@ void printMatrix(float **x){
 
 int main(int argc, char *argv[])
 {
+    int i;
+    int j;
     float testBlock[8][8] = { {255, 255, 255, 255, 255, 255, 255, 255},
                              {255, 255, 255, 255, 255, 255, 255, 255},
                              {255, 255, 255, 255, 255, 255, 255, 255},
@@ -179,8 +185,8 @@ int main(int argc, char *argv[])
                             {255, 255, 255, 255, 255, 255, 255, 255} };
     
     float **Matrix = createMatrix(8,8);
-    for (int i=0; i<8; i++){
-        for (int j=0; j<8; j++){
+    for (i=0; i<8; i++){
+        for (j=0; j<8; j++){
             Matrix[i][j] = testBlock[i][j];
         }
     }
@@ -189,18 +195,18 @@ int main(int argc, char *argv[])
     printf("\n\n After DCT Calculation \n\n");
     
     // row separation
-    for (int i=0; i<8; i++){
+    for (i=0; i<8; i++){
         dct(Matrix[i]);
     }
     
     // column separation
-    for (int j=0; j<8; j++){
+    for (j=0; j<8; j++){
         float *column = (float *)malloc(8 * sizeof(float));
-        for (int i=0; i<8; i++){
+        for (i=0; i<8; i++){
             column[i] = Matrix[i][j];
         }
         dct(column);
-        for (int i=0; i<8; i++){
+        for (i=0; i<8; i++){
             Matrix[i][j] = column[i];
         }
         free(column);
