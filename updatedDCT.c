@@ -20,7 +20,7 @@ struct Output{
 };
 
 // initialize and allocate memory to a matrix of shape (row * col).
-unsigned char **createMatrix(int row, int col){
+uint8_t **createMatrix(int row, int col){
     uint8_t **M = (uint8_t **)malloc(row * sizeof(uint8_t *));
     int i;
     for (i=0; i<row; i++){
