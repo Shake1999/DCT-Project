@@ -6,6 +6,9 @@
 #include <math.h>
 #include <stdint.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #define N 8
 // reduced precision
 // constants required to calculate the output from rotators
@@ -34,8 +37,28 @@ void freeMatrix(uint8_t **M){
 }
 
 // read the jpeg file
-void readJPEG(FILE *fp, uint8_t **M){
-   // have to look into this
+void readJPEG(uint8_t **M){
+   int width, height, channels;
+    // defined to write to an unsigned char, but uint8_t is the same effectivly
+    uint8_t *img = stbi_load("TestImages/min_test_image.png", &width, &height, &channels, 0);
+    if(img == NULL) {
+        printf("ERROR: Could not load the image\n");
+    }
+    printf("Loaded image with a width of %dpx, a height of %dpx and %d channels\n", width, height, channels);
+    int size = strlen((char*) img);
+    printf("String is  %d chars long\n", size);
+    // create the array to work off
+    uint8_t original_image[height][width];
+    // write values to this 2D array, which is what we'll work off of.
+    int x;
+    int y;
+    int index = 0;
+    for(y=0; y<height; y++) {
+        for(x=0; x<width; x++) {
+            original_image[y][x] = *(img + index);
+            index++;
+        }
+    }
 }
 
 uint16_t butterfly(register uint8_t i1, register uint8_t i2, register float c1, register float c2)
@@ -174,11 +197,13 @@ int main(int argc, char *argv[])
                              {254, 254, 254, 254, 254, 254, 255, 255} };
     
     uint8_t **Matrix = createMatrix(8,8);
+    readJPEG(Matrix);
+    /*
     for (i=0; i<8; i++){
         for (j=0; j<8; j++){
             Matrix[i][j] = testBlock[i][j];
         }
-    }
+    }*/
     
     printMatrix(Matrix);
     printf("\n\n After DCT Calculation \n\n");
