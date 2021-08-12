@@ -14,11 +14,6 @@
 // for C6   root(2)*c6cos 1.41391462    root(2)*c6sin 0.02907655
 const float constants[8] = { 0, 0.9999, 0.0034, 0.9999, 0.0103, 0, 1.4139, 0.0291};
 
-// to make it easier to return 2 values.
-struct Output{
-    uint8_t o1,o2;
-};
-
 // initialize and allocate memory to a matrix of shape (row * col).
 uint8_t **createMatrix(int row, int col){
     uint8_t **M = (uint8_t **)malloc(row * sizeof(uint8_t *));
@@ -43,12 +38,12 @@ void readJPEG(FILE *fp, uint8_t **M){
    // have to look into this
 }
 
-struct Output butterfly(register uint8_t i1, register uint8_t i2, register float c1, register float c2)
+uint16_t butterfly(register uint8_t i1, register uint8_t i2, register float c1, register float c2)
 {
-    struct Output o;
-    o.o1 = (uint8_t)(i1+i2)*c1; // 16 bits
-    o.o2 = (uint8_t)(i1-i2)*c2; // 16 bits
-    
+    register uint8_t o1 = (i1+i2) * c1; // 16 bits
+    register uint8_t o2 = (i1-i2) * c2; // 16 bits
+    register uint16_t o  = (o1<<16) + o2;
+
     return o;
 }
 
@@ -61,23 +56,14 @@ struct Output butterfly(register uint8_t i1, register uint8_t i2, register float
     return o;
 }*/
 
-uint16_t r (uint8_t i1, uint8_t i2){
-    int a = i1 + i2;
-    int b = i1 - i2;
-    return (a<<8)+b;
-}
-
-struct Output rotators(register uint8_t i1, register uint8_t i2, int n)
+uint16_t rotators(register uint8_t i1, register uint8_t i2, int n)
 {
     register float k1 = constants[n];
     register float k2 = constants[n+1];
     
-    float o1 =  k1 * i1 + k2 * i2;
-    float o2 = -k2 * i1 + k1 * i2;
-    
-    struct Output o;
-    o.o1 = (uint8_t)o1;
-    o.o2 = (uint8_t)o2;
+    register uint8_t o1 =  k1 * i1 + k2 * i2;
+    register uint8_t o2 = -k2 * i1 + k1 * i2;
+    register uint16_t o = (o1<<16) + o2;
     
     return o;
 }
@@ -91,8 +77,8 @@ float scaleup (register uint8_t i)
 // calculates the 8-point 1D DCT
 // Input : pointer to array of 8 elements.
 void dct(uint8_t *x){
-    struct Output o;
     
+    register uint16_t o;
     //local parameters
     uint8_t x0 = x[0];
     uint8_t x1 = x[1];
@@ -105,50 +91,50 @@ void dct(uint8_t *x){
     
     // stage 1
     o = butterfly(x0, x7, 1.0, 0.9058); // cos(0*pi/16) and cos(7*pi/16)
-    x0 = o.o1;
-    x7 = o.o2;
+    x7 = o & 0xff;
+    x0 = o >> 8;
     o = butterfly(x1, x6, 0.998, 0.9305); // cos(pi/16) and cos(6*pi/16)
-    x1 = o.o1;
-    x6 = o.o2;
+    x6 = o & 0xff;
+    x1 = o >> 8;
     o = butterfly(x2, x5, 0.9922, 0.9516); // cos(2*pi/16) and cos(5*pi/16)
-    x2 = o.o1;
-    x5 = o.o2;
+    x5 = o & 0xff;
+    x2 = o >> 8;
     o = butterfly(x3, x4, 0.9825, 0.9689); // cos(3*pi/16) and cos(4*pi/16)
-    x3 = o.o1;
-    x4 = o.o2;
+    x4 = o & 0xff;
+    x3 = o >> 8;
     
     // stage 2
     o = butterfly(x0, x3, 1, 0.9825);
-    x0 = o.o1;
-    x3 = o.o2;
+    x3 = o & 0xff;
+    x0 = o >> 8;
     o = butterfly(x1, x2, 0.998, 0.9922);
-    x1 = o.o1;
-    x2 = o.o2;
+    x2 = o & 0xff;
+    x1 = o >> 8;
     o = rotators(x4, x7, 3);
-    x4 = o.o1;
-    x7 = o.o2;
+    x7 = o & 0xff;
+    x4 = o >> 8;
     o = rotators(x5, x6, 1);
-    x5 = o.o1;
-    x6 = o.o2;
+    x6 = o & 0xff;
+    x5 = o >> 8;
     
     // stage 3
     o = butterfly(x0, x1, 1, 0.998);
-    x0 = o.o1;
-    x1 = o.o2;
+    x1 = o & 0xff;
+    x0 = o >> 8;
     o = rotators(x2, x3, 6);
-    x2 = o.o1;
-    x3 = o.o2;
+    x3 = o & 0xff;
+    x2 = o >> 8;
     o = butterfly(x4, x6, 0.9689, 0.9305);
-    x4 = o.o1;
-    x6 = o.o2;
+    x6 = o & 0xff;
+    x4 = o >> 8;
     o = butterfly(x7, x5, 0.9058, 0.9516);
-    x7 = o.o1;
-    x5 = o.o2;
+    x5 = o & 0xff;
+    x7 = o >> 8;
     
     // stage 4
     o = butterfly(x7, x4, 0.9058, 0.9689);
-    x7 = o.o1;
-    x4 = o.o2;
+    x4 = o & 0xff;
+    x7 = o >> 8;
     x5 = scaleup(x5);
     x6 = scaleup(x6);
     
@@ -178,14 +164,14 @@ int main(int argc, char *argv[])
 {
     int i;
     int j;
-    uint8_t testBlock[8][8] = { {255, 255, 255, 255, 255, 255, 255, 255},
-                             {255, 255, 255, 255, 255, 255, 255, 255},
-                             {255, 255, 255, 255, 255, 255, 255, 255},
-                             {255, 255, 255, 255, 255, 255, 255, 255},
-                             {255, 255, 255, 255, 255, 255, 255, 255},
-                             {255, 255, 255, 255, 255, 255, 255, 255},
-                             {255, 255, 255, 255, 255, 255, 255, 255},
-                            {255, 255, 255, 255, 255, 255, 255, 255} };
+    uint8_t testBlock[8][8] = { {254, 254, 254, 254, 254, 254, 254, 254},
+                             {254, 254, 254, 254, 254, 254, 254, 254},
+                             {254, 254, 254, 254, 254, 254, 254, 254},
+                             {254, 254, 254, 254, 254, 254, 254, 254},
+                             {254, 254, 254, 254, 254, 254, 254, 254},
+                             {254, 254, 254, 254, 254, 254, 254, 254},
+                             {254, 254, 254, 254, 254, 254, 254, 254},
+                             {254, 254, 254, 254, 254, 254, 255, 255} };
     
     uint8_t **Matrix = createMatrix(8,8);
     for (i=0; i<8; i++){
@@ -220,16 +206,4 @@ int main(int argc, char *argv[])
     
     // free the memory.
     freeMatrix(Matrix);
-    
-    
-    /*check for two return value emulation*/
-    uint8_t x = 9;
-    uint8_t y = 6;
-    uint16_t z = r(x,y);
-    printf("\n\n The char : %d\n\n", z);
-    uint8_t o1 = z & 0xFF;
-    uint8_t o2 = z >> 8;
-    printf("\n o1 = : %d\n", o1);
-    printf("\n o2 = : %d\n", o2);
-    
 }
