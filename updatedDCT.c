@@ -15,7 +15,12 @@
 // for C1   c1cos 0.99999413            c1sin 0.00342694
 // for C3   c3cos 0.99994715            c3sin 0.01028066
 // for C6   root(2)*c6cos 1.41391462    root(2)*c6sin 0.02907655
-const float constants[8] = { 0, 0.9999, 0.0034, 0.9999, 0.0103, 0, 1.4139, 0.0291};
+#define constant0 0.9999
+#define constant1 0.0034
+#define constant2 0.9999
+#define constant3 0.0103
+#define constant4 1.4139
+#define constant5 0.0291
 
 // initialize and allocate memory to a matrix of shape (row * col).
 uint8_t **createMatrix(int row, int col){
@@ -70,21 +75,11 @@ inline uint16_t butterfly(register uint8_t i1, register uint8_t i2, register flo
     return o;
 }
 
-/*struct Output reflector(uint8_t i1, uint8_t i2)
-{
-    struct Output o;
-    o.o1 = (uint8_t)(i1 + i2);
-    o.o2 = (uint8_t)(i1 - i2);
-    
-    return o;
-}*/
-
 inline uint16_t rotators(register uint8_t i1, register uint8_t i2, register float k1, register float k2)
 {
     register uint8_t o1 =  k1 * i1 + k2 * i2;
     register uint8_t o2 = -k2 * i1 + k1 * i2;
     register uint16_t o = (o1<<8) + o2;
-
     return o;
 }
 
@@ -96,76 +91,48 @@ inline uint8_t scaleup(register uint8_t x)
 // calculates the 8-point 1D DCT
 // Input : pointer to array of 8 elements.
 void dct(uint8_t *x){
-    
-    register uint16_t o;
     //local parameters
-    uint8_t x0 = x[0];
-    uint8_t x1 = x[1];
-    uint8_t x2 = x[2];
-    uint8_t x3 = x[3];
-    uint8_t x4 = x[4];
-    uint8_t x5 = x[5];
-    uint8_t x6 = x[6];
-    uint8_t x7 = x[7];
-    
+    register uint16_t x07 = x[0] << 8 + x[7];
+    register uint16_t x16 = x[1] << 8 + x[6];
+    register uint16_t x25 = x[2] << 8 + x[5];
+    register uint16_t x34 = x[3] << 8 + x[4];
+
     // stage 1
-    o = butterfly(x0, x7, 1.0, 0.9058); // cos(0*pi/16) and cos(7*pi/16)
-    x7 = o & 0xff;
-    x0 = o >> 8;
-    o = butterfly(x1, x6, 0.998, 0.9305); // cos(pi/16) and cos(6*pi/16)
-    x6 = o & 0xff;
-    x1 = o >> 8;
-    o = butterfly(x2, x5, 0.9922, 0.9516); // cos(2*pi/16) and cos(5*pi/16)
-    x5 = o & 0xff;
-    x2 = o >> 8;
-    o = butterfly(x3, x4, 0.9825, 0.9689); // cos(3*pi/16) and cos(4*pi/16)
-    x4 = o & 0xff;
-    x3 = o >> 8;
-    
-    // stage 2
-    o = butterfly(x0, x3, 1, 0.9825);
-    x3 = o & 0xff;
-    x0 = o >> 8;
-    o = butterfly(x1, x2, 0.998, 0.9922);
-    x2 = o & 0xff;
-    x1 = o >> 8;
-    o = rotators(x4, x7, 3);
-    x7 = o & 0xff;
-    x4 = o >> 8;
-    o = rotators(x5, x6, 1);
-    x6 = o & 0xff;
-    x5 = o >> 8;
-    
-    // stage 3
-    o = butterfly(x0, x1, 1, 0.998);
-    x1 = o & 0xff;
-    x0 = o >> 8;
-    o = rotators(x2, x3, 6);
-    x3 = o & 0xff;
-    x2 = o >> 8;
-    o = butterfly(x4, x6, 0.9689, 0.9305);
-    x6 = o & 0xff;
-    x4 = o >> 8;
-    o = butterfly(x7, x5, 0.9058, 0.9516);
-    x5 = o & 0xff;
-    x7 = o >> 8;
-    
-    // stage 4
-    o = butterfly(x7, x4, 0.9058, 0.9689);
-    x4 = o & 0xff;
-    x7 = o >> 8;
-    x5 = scaleup(x5);
-    x6 = scaleup(x6);
-    
-    //updating the memory
-    x[0] = x0;
-    x[1] = x1;
-    x[2] = x2;
-    x[3] = x3;
-    x[4] = x4;
-    x[5] = x5;
-    x[6] = x6;
-    x[7] = x7;
+    x07 = butterfly(x07 >> 8, x07 & 0xff, 1.0, 1.0);
+    x16 = butterfly(x16 >> 8, x16 & 0xff, 1.0, 1.0);
+    x25 = butterfly(x25 >> 8, x25 & 0xff, 1.0, 1.0);
+    x34 = butterfly(x34 >> 8, x34 & 0xff, 1.0, 1.0);
+
+    register uint16_t tmp1;
+    register uint16_t tmp2;
+    register uint16_t tmp3;
+
+    // stage 2 even part
+    tmp1 = butterfly(x07 >> 8, x34 >> 8, 1.0, 1.0);
+    tmp2 = butterfly(x16 >> 8, x25 >> 8, 1.0, 1.0);
+
+    // stage 3 even part and memory updates
+    tmp3 = butterfly(tmp1 >> 8, tmp2 >> 8, 1.0, 1.0);
+    x[4] = tmp3 & 0xff;
+    x[0] = tmp3 >> 8;
+    tmp3 = rotators(tmp2 & 0xff, tmp1 & 0xff, constant4, constant5);
+    x[6] = tmp3 & 0xff;
+    x[2] = tmp3 >> 8;
+
+    // stage 2 odd part
+    tmp1 = rotators(x34 & 0xff, x07 & 0xff, constant2, constant3);
+    tmp2 = rotators(x25 & 0xff, x16 & 0xff, constant0, constant1);
+
+    // stage 3 odd part
+    tmp3 = butterfly(tmp1 >> 8, tmp2 & 0xff, 1.0, 1.0);
+    tmp1 = butterfly(tmp1 & 0xff, tmp2 >> 8, 1.0, 1.0);
+
+    // stage 4 odd part and memory updates
+    tmp2 = butterfly(tmp3 >> 8, tmp1 >> 8, 1.0, 1.0);
+    x[7] = tmp2 & 0xff;
+    x[1] = tmp2 >> 8;
+    x[3] = scaleup(tmp1 & 0xff);
+    x[5] = scaleup(tmp3 & 0xff);
 }
 
 void printMatrix(uint8_t **x){
@@ -190,7 +157,7 @@ int main(int argc, char *argv[])
                              {254, 254, 254, 254, 254, 254, 254, 254},
                              {254, 254, 254, 254, 254, 254, 254, 254},
                              {254, 254, 254, 254, 254, 254, 254, 254},
-                             {254, 254, 254, 254, 254, 254, 255, 255} };
+                             {254, 254, 254, 254, 254, 254, 254, 254} };
     
     uint8_t **Matrix = createMatrix(8,8);
     readJPEG(Matrix);
