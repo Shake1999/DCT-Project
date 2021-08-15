@@ -61,11 +61,11 @@ void readJPEG(uint8_t **M){
     }
 }
 
-uint16_t butterfly(register uint8_t i1, register uint8_t i2, register float c1, register float c2)
+inline uint16_t butterfly(register uint8_t i1, register uint8_t i2, register float c1, register float c2)
 {
-    register uint8_t o1 = (i1+i2) * c1; // 16 bits
-    register uint8_t o2 = (i1-i2) * c2; // 16 bits
-    register uint16_t o  = (o1<<16) + o2;
+    register uint8_t o1 = (i1 + i2) * c1;
+    register uint8_t o2 = (i1 - i2) * c2;
+    register uint16_t o  = (o1<<8) + o2;
 
     return o;
 }
@@ -79,22 +79,18 @@ uint16_t butterfly(register uint8_t i1, register uint8_t i2, register float c1, 
     return o;
 }*/
 
-uint16_t rotators(register uint8_t i1, register uint8_t i2, int n)
+inline uint16_t rotators(register uint8_t i1, register uint8_t i2, register float k1, register float k2)
 {
-    register float k1 = constants[n];
-    register float k2 = constants[n+1];
-    
     register uint8_t o1 =  k1 * i1 + k2 * i2;
     register uint8_t o2 = -k2 * i1 + k1 * i2;
-    register uint16_t o = (o1<<16) + o2;
-    
+    register uint16_t o = (o1<<8) + o2;
+
     return o;
 }
 
-float scaleup (register uint8_t i)
+inline uint8_t scaleup(register uint8_t x)
 {
-    register float root2 = 1.4142;
-    return (root2 * i); //changed from memory load to immediate load operation.
+        return (uint8_t)(1.4142 * x);
 }
 
 // calculates the 8-point 1D DCT
