@@ -6,6 +6,9 @@
 #include <math.h>
 #include <stdint.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #define N 8
 
 // reduced precision
@@ -32,32 +35,7 @@ void transpose(uint8_t A[N][N], uint8_t B[N][N])
     }
 }
 
-/*// read the jpeg file
-void readJPEG(uint8_t **M){
-   int width, height, channels;
-    // defined to write to an unsigned char, but uint8_t is the same effectivly
-    uint8_t *img = stbi_load("TestImages/min_test_image.png", &width, &height, &channels, 0);
-    if(img == NULL) {
-        printf("ERROR: Could not load the image\n");
-    }
-    printf("Loaded image with a width of %dpx, a height of %dpx and %d channels\n", width, height, channels);
-    int size = strlen((char*) img);
-    printf("String is  %d chars long\n", size);
-    // create the array to work off
-    uint8_t original_image[height][width];
-    // write values to this 2D array, which is what we'll work off of.
-    int x;
-    int y;
-    int index = 0;
-    for(y=0; y<height; y++) {
-        for(x=0; x<width; x++) {
-            original_image[y][x] = *(img + index);
-            index++;
-        }
-    }
-}*/
-
-inline uint16_t butterfly(register uint8_t i1, register uint8_t i2)
+uint16_t butterfly(register uint8_t i1, register uint8_t i2)
 {   
     register uint8_t o1 = i1 + i2;
     register uint8_t o2 = i1 - i2; 
@@ -83,13 +61,14 @@ uint16_t rotators(register uint8_t i1, register uint8_t i2, register float k1, r
     return o;
 }
 
-inline uint8_t scaleup(register uint8_t x)
+uint8_t scaleup(register uint8_t x)
 {
     return (uint8_t)(1.4142 * x);
 }
 
 // calculates the 8-point 1D DCT
-// Input : pointer to array of 8 elements.
+// Input : array of 8 elements.
+// Output : DCT transform of the 8 elements.
 void dct1d(uint8_t x[N], uint8_t y[N]){
     //local parameters
     register uint16_t x07 = (x[0] << 8) + x[7];
@@ -135,7 +114,8 @@ void dct1d(uint8_t x[N], uint8_t y[N]){
     y[5] = scaleup(tmp3 & 0xff);
 }
 
-// input is 8 dimensional array of pointers to 8 dimensional arrays
+// input is 8x8 input pixel data
+// output is the 8x8 transformed output pixel data
 // so input[0] points to the first row of 8 numbers. 
 void dct2d(uint8_t input[N][N], uint8_t output[N][N])
 {
@@ -214,7 +194,9 @@ void dct2d(uint8_t input[N][N], uint8_t output[N][N])
     dct1d(currentRow, output[7]);
 }
 
+// prints the provided matrix
 void printMatrix(uint8_t x[N][N]){
+    printf("\n");
     int i;
     int j;
     for (i=0; i<N; i++){
@@ -227,22 +209,53 @@ void printMatrix(uint8_t x[N][N]){
 
 int main(int argc, char *argv[])
 {
-    int i;
-    int j;
-    uint8_t testBlock[8][8] = { {254, 254, 254, 254, 254, 254, 254, 254},
-                             {254, 254, 254, 254, 254, 254, 254, 254},
-                             {254, 254, 254, 254, 254, 254, 254, 254},
-                             {254, 254, 254, 254, 254, 254, 254, 254},
-                             {254, 254, 254, 254, 254, 254, 254, 254},
-                             {254, 254, 254, 254, 254, 254, 254, 254},
-                             {254, 254, 254, 254, 254, 254, 254, 254},
-                             {254, 254, 254, 254, 254, 254, 254, 254} };
-    
-    printMatrix(testBlock);
-    printf("\n\n After DCT Calculation \n\n");
+    // Reading the JPEG file
+    int width, height, channels;
+    // defined to write to an unsigned char, but uint8_t is the same effectivly
+    uint8_t *img = stbi_load("TestImages/min_test_image.png", &width, &height, &channels, 0);
+    if(img == NULL) {
+        printf("ERROR: Could not load the image\n");
+    }
+    printf("Loaded image with a width of %dpx, a height of %dpx and %d channels\n", width, height, channels);
+    int size = strlen((char*) img);
+    printf("String is  %d chars long\n", size);
+    // create the array to work off
+    uint8_t original_image[height][width];
+    // write values to this 2D array, which is what we'll work off of.
+    int x;
+    int y;
+    int index = 0;
+    for(y=0; y<height; y++) {
+        for(x=0; x<width; x++) {
+            original_image[y][x] = *(img + index);
+            index++;
+        }
+    }
 
-    uint8_t testOut[8][8];
-    dct2d(testBlock, testOut);
-    
-    printMatrix(testOut);
+    printf("\nheight : %d\n", height);
+    printf("width : %d\n", width);
+
+    int yOffset = 0;
+    int xOffset = 0;
+    int xsplit;
+    int ysplit;
+    uint8_t blockInput[N][N], blockOutput[N][N];
+
+    for(ysplit = 0; ysplit < height/8; ysplit++) {
+        for(xsplit = 0; xsplit < width/8; xsplit++) {
+            for(y=0; y<8; y++) {
+                for(x=0; x<8; x++) {
+                    blockInput[y][x] = original_image[y+yOffset][x+xOffset];
+                }
+            }
+            printf("Before :\n");
+            printMatrix(blockInput);
+            dct2d(blockInput, blockOutput);
+            printf("After :\n");
+            printMatrix(blockOutput);
+            xOffset= xOffset+8;
+        }
+        xOffset = 0; 
+        yOffset = yOffset+8;
+    }
 }
