@@ -133,8 +133,6 @@ void dct1d(uint8_t x[N], uint8_t y[N]){
     y[1] = tmp2 >> 8;
     y[3] = scaleup(tmp1 & 0xff);
     y[5] = scaleup(tmp3 & 0xff);
-
-    return out;
 }
 
 // input is 8 dimensional array of pointers to 8 dimensional arrays
