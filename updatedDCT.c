@@ -6,42 +6,33 @@
 #include <math.h>
 #include <stdint.h>
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-
 #define N 8
+
 // reduced precision
 // constants required to calculate the output from rotators
-// for C1   c1cos 0.99999413            c1sin 0.00342694
-// for C3   c3cos 0.99994715            c3sin 0.01028066
-// for C6   root(2)*c6cos 1.41391462    root(2)*c6sin 0.02907655
-#define constant0 0.9999
-#define constant1 0.0034
-#define constant2 0.9999
-#define constant3 0.0103
-#define constant4 1.4139
-#define constant5 0.0291
+#define constant0 0.9999  // kcos(n * pi/16) for k = 1 and n = 1
+#define constant1 0.9965  // ksin(n * pi/16) - kcos(n * pi/16) for k = 1 and n = 1
+#define constant2 1.0033  // ksin(n * pi/16) + kcos(n * pi/16) for k = 1 and n = 1
 
-// initialize and allocate memory to a matrix of shape (row * col).
-uint8_t **createMatrix(int row, int col){
-    uint8_t **M = (uint8_t **)malloc(row * sizeof(uint8_t *));
-    int i;
-    for (i=0; i<row; i++){
-        M[i] = (uint8_t *)malloc(col * sizeof(uint8_t));
+#define constant3 0.9999  // kcos(n * pi/16) for k = 1 and n = 3
+#define constant4 0.9896  // ksin(n * pi/16) - kcos(n * pi/16) for k = 1 and n = 3 
+#define constant5 1.0102  // ksin(n * pi/16) + kcos(n * pi/16) for k = 1 and n = 3
+
+#define constant6 1.4139  // kcos(n * pi/16) for k = root(2) and n = 6
+#define constant7 1.3848  // ksin(n * pi/16) - kcos(n * pi/16) for k = root2 and n = 6
+#define constant8 1.443   // ksin(n * pi/16) + kcos(n * pi/16) for k = root2 and n = 6
+
+void transpose(uint8_t A[N][N], uint8_t B[N][N])
+{
+    int i, j;
+    for (i = 0; i < N; i++){
+        for (j = 0; j< N; j++){
+            B[i][j] = A[j][i];
+        }
     }
-    return M;
 }
 
-// free the pointers. // loop initialization and conditions changed.
-void freeMatrix(uint8_t **M){
-    int i;
-    for (i=N-1; i >= 0; i--){
-        free(M[i]);
-    }
-    free(M);
-}
-
-// read the jpeg file
+/*// read the jpeg file
 void readJPEG(uint8_t **M){
    int width, height, channels;
     // defined to write to an unsigned char, but uint8_t is the same effectivly
@@ -64,82 +55,172 @@ void readJPEG(uint8_t **M){
             index++;
         }
     }
-}
+}*/
 
-inline uint16_t butterfly(register uint8_t i1, register uint8_t i2, register float c1, register float c2)
-{
-    register uint8_t o1 = (i1 + i2) * c1;
-    register uint8_t o2 = (i1 - i2) * c2;
+inline uint16_t butterfly(register uint8_t i1, register uint8_t i2)
+{   
+    register uint8_t o1 = i1 + i2;
+    register uint8_t o2 = i1 - i2; 
     register uint16_t o  = (o1<<8) + o2;
-
+    
     return o;
 }
 
-inline uint16_t rotators(register uint8_t i1, register uint8_t i2, register float k1, register float k2)
-{
-    register uint8_t o1 =  k1 * i1 + k2 * i2;
-    register uint8_t o2 = -k2 * i1 + k1 * i2;
+// k1 is kcos(n * pi/16)
+// k2 is ksin(n * pi/16) - kcos(n * pi/16)
+// k3 is ksin(n * pi/16) + kcos(n * pi/16) 
+// requires 3 multiplication and 3 additions
+uint16_t rotators(register uint8_t i1, register uint8_t i2, register float k1, register float k2, register float k3)
+{   
+    register uint8_t tmp1 = (i1 + i2) * k1;
+    register uint8_t tmp2 = k2 * i2;
+    register uint8_t tmp3 = k3 * i1;
+    
+    register uint8_t o1 = tmp2 + tmp1;
+    register uint8_t o2 = tmp3 + tmp1;
     register uint16_t o = (o1<<8) + o2;
+    
     return o;
 }
 
 inline uint8_t scaleup(register uint8_t x)
 {
-        return (uint8_t)(1.4142 * x);
+    return (uint8_t)(1.4142 * x);
 }
 
 // calculates the 8-point 1D DCT
 // Input : pointer to array of 8 elements.
-void dct(uint8_t *x){
+void dct1d(uint8_t x[N], uint8_t y[N]){
     //local parameters
-    register uint16_t x07 = x[0] << 8 + x[7];
-    register uint16_t x16 = x[1] << 8 + x[6];
-    register uint16_t x25 = x[2] << 8 + x[5];
-    register uint16_t x34 = x[3] << 8 + x[4];
+    register uint16_t x07 = (x[0] << 8) + x[7];
+    register uint16_t x16 = (x[1] << 8) + x[6];
+    register uint16_t x25 = (x[2] << 8) + x[5];
+    register uint16_t x34 = (x[3] << 8) + x[4];
 
     // stage 1
-    x07 = butterfly(x07 >> 8, x07 & 0xff, 1.0, 1.0);
-    x16 = butterfly(x16 >> 8, x16 & 0xff, 1.0, 1.0);
-    x25 = butterfly(x25 >> 8, x25 & 0xff, 1.0, 1.0);
-    x34 = butterfly(x34 >> 8, x34 & 0xff, 1.0, 1.0);
-
+    x07 = butterfly(x07 >> 8, x07 & 0xff);
+    x16 = butterfly(x16 >> 8, x16 & 0xff);
+    x25 = butterfly(x25 >> 8, x25 & 0xff);
+    x34 = butterfly(x34 >> 8, x34 & 0xff);
+    
     register uint16_t tmp1;
     register uint16_t tmp2;
     register uint16_t tmp3;
 
     // stage 2 even part
-    tmp1 = butterfly(x07 >> 8, x34 >> 8, 1.0, 1.0);
-    tmp2 = butterfly(x16 >> 8, x25 >> 8, 1.0, 1.0);
+    tmp1 = butterfly(x07 >> 8, x34 >> 8);
+    tmp2 = butterfly(x16 >> 8, x25 >> 8);
 
     // stage 3 even part and memory updates
-    tmp3 = butterfly(tmp1 >> 8, tmp2 >> 8, 1.0, 1.0);
-    x[4] = tmp3 & 0xff;
-    x[0] = tmp3 >> 8;
-    tmp3 = rotators(tmp2 & 0xff, tmp1 & 0xff, constant4, constant5);
-    x[6] = tmp3 & 0xff;
-    x[2] = tmp3 >> 8;
+    tmp3 = butterfly(tmp1 >> 8, tmp2 >> 8);
+    y[4] = tmp3 & 0xff;
+    y[0] = tmp3 >> 8;
+    tmp3 = rotators(tmp2 & 0xff, tmp1 & 0xff, constant6, constant7, constant8);
+    y[6] = tmp3 & 0xff;
+    y[2] = tmp3 >> 8;
 
     // stage 2 odd part
-    tmp1 = rotators(x34 & 0xff, x07 & 0xff, constant2, constant3);
-    tmp2 = rotators(x25 & 0xff, x16 & 0xff, constant0, constant1);
+    tmp1 = rotators(x34 & 0xff, x07 & 0xff, constant3, constant4, constant5);
+    tmp2 = rotators(x25 & 0xff, x16 & 0xff, constant0, constant1, constant2);
 
     // stage 3 odd part
-    tmp3 = butterfly(tmp1 >> 8, tmp2 & 0xff, 1.0, 1.0);
-    tmp1 = butterfly(tmp1 & 0xff, tmp2 >> 8, 1.0, 1.0);
+    tmp3 = butterfly(tmp1 >> 8, tmp2 & 0xff);
+    tmp1 = butterfly(tmp1 & 0xff, tmp2 >> 8);
 
     // stage 4 odd part and memory updates
-    tmp2 = butterfly(tmp3 >> 8, tmp1 >> 8, 1.0, 1.0);
-    x[7] = tmp2 & 0xff;
-    x[1] = tmp2 >> 8;
-    x[3] = scaleup(tmp1 & 0xff);
-    x[5] = scaleup(tmp3 & 0xff);
+    tmp2 = butterfly(tmp3 >> 8, tmp1 >> 8);
+    y[7] = tmp2 & 0xff;
+    y[1] = tmp2 >> 8;
+    y[3] = scaleup(tmp1 & 0xff);
+    y[5] = scaleup(tmp3 & 0xff);
+
+    return out;
 }
 
-void printMatrix(uint8_t **x){
+// input is 8 dimensional array of pointers to 8 dimensional arrays
+// so input[0] points to the first row of 8 numbers. 
+void dct2d(uint8_t input[N][N], uint8_t output[N][N])
+{
+    uint8_t *currentRow, *nextRow;
+    
+    // row separation part
+    // loop unrolling
+    currentRow = input[0];
+
+    nextRow = input[1];         // these two instructions
+    dct1d(currentRow, output[0]); // can run in parallel
+    currentRow = nextRow;
+
+    nextRow = input[2];
+    dct1d(currentRow, output[1]);
+    currentRow = nextRow;
+
+    nextRow = input[3];
+    dct1d(currentRow, output[2]);
+    currentRow = nextRow;
+
+    nextRow = input[4];
+    dct1d(currentRow, output[3]);
+    currentRow = nextRow;
+
+    nextRow = input[5];
+    dct1d(currentRow, output[4]);
+    currentRow = nextRow;
+
+    nextRow = input[6];
+    dct1d(currentRow, output[5]);
+    currentRow = nextRow;
+
+    nextRow = input[7];
+    dct1d(currentRow, output[6]);
+    currentRow = nextRow;
+
+    dct1d(currentRow, output[7]);
+
+    // Matrix Transpose
+    uint8_t transposedoutput[N][N];
+    transpose(output, transposedoutput);
+
+    // column separation part.
+    // loop unrolling
+    currentRow = transposedoutput[0];
+
+    nextRow = transposedoutput[1];         // these two instructions
+    dct1d(currentRow, output[0]); // can run in parallel
+    currentRow = nextRow;
+
+    nextRow = transposedoutput[2];
+    dct1d(currentRow, output[1]);
+    currentRow = nextRow;
+
+    nextRow = transposedoutput[3];
+    dct1d(currentRow, output[2]);
+    currentRow = nextRow;
+
+    nextRow = transposedoutput[4];
+    dct1d(currentRow, output[3]);
+    currentRow = nextRow;
+
+    nextRow = transposedoutput[5];
+    dct1d(currentRow, output[4]);
+    currentRow = nextRow;
+
+    nextRow = transposedoutput[6];
+    dct1d(currentRow, output[5]);
+    currentRow = nextRow;
+
+    nextRow = transposedoutput[7];
+    dct1d(currentRow, output[6]);
+    currentRow = nextRow;
+
+    dct1d(currentRow, output[7]);
+}
+
+void printMatrix(uint8_t x[N][N]){
     int i;
     int j;
-    for (i=0; i<8; i++){
-        for (j=0; j<8;j++){
+    for (i=0; i<N; i++){
+        for (j=0; j<N;j++){
             printf("%d  ", x[i][j]);
         }
         printf("\n");
@@ -159,39 +240,11 @@ int main(int argc, char *argv[])
                              {254, 254, 254, 254, 254, 254, 254, 254},
                              {254, 254, 254, 254, 254, 254, 254, 254} };
     
-    uint8_t **Matrix = createMatrix(8,8);
-    readJPEG(Matrix);
-    /*
-    for (i=0; i<8; i++){
-        for (j=0; j<8; j++){
-            Matrix[i][j] = testBlock[i][j];
-        }
-    }*/
-    
-    printMatrix(Matrix);
+    printMatrix(testBlock);
     printf("\n\n After DCT Calculation \n\n");
+
+    uint8_t testOut[8][8];
+    dct2d(testBlock, testOut);
     
-    // row separation
-    for (i=0; i<8; i++){
-        dct(Matrix[i]);
-    }
-    
-    // column separation
-    for (j=0; j<8; j++){
-        uint8_t *column = (uint8_t *)malloc(64);
-        for (i=0; i<8; i++){
-            column[i] = Matrix[i][j];
-        }
-        dct(column);
-        for (i=0; i<8; i++){
-            Matrix[i][j] = column[i];
-        }
-        free(column);
-    }
-    
-    //print result. Needs to be done.
-    printMatrix(Matrix);
-    
-    // free the memory.
-    freeMatrix(Matrix);
+    printMatrix(testOut);
 }
