@@ -35,7 +35,7 @@ void transpose(uint8_t A[N][N], uint8_t B[N][N])
     }
 }
 
-uint16_t butterfly(register uint8_t i1, register uint8_t i2)
+inline uint16_t butterfly(register uint8_t i1, register uint8_t i2)
 {
     register uint8_t o1 = i1 + i2;
     register uint8_t o2 = i1 - i2;
@@ -61,7 +61,7 @@ uint16_t rotators(register uint8_t i1, register uint8_t i2, register float k1, r
     return o;
 }
 
-uint8_t scaleup(register uint8_t x)
+inline uint8_t scaleup(register uint8_t x)
 {
     return (uint8_t)(1.4142 * x);
 }
