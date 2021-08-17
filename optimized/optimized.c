@@ -217,8 +217,6 @@ int main(int argc, char *argv[])
         printf("ERROR: Could not load the image\n");
     }
     printf("Loaded image with a width of %dpx, a height of %dpx and %d channels\n", width, height, channels);
-    int size = strlen((char*) img);
-    printf("String is  %d chars long\n", size);
     // create the array to work off
     uint8_t original_image[height][width];
     // write values to this 2D array, which is what we'll work off of.
@@ -226,9 +224,10 @@ int main(int argc, char *argv[])
     int y;
     int index = 0;
     for(y=0; y<height; y++) {
-        for(x=0; x<width; x++) {
+        for(x=0; x<width; x+=2) {
             original_image[y][x] = *(img + index);
-            index++;
+            original_image[y][x+1] = *(img + index+1);
+            index+=2;
         }
     }
 
@@ -244,8 +243,9 @@ int main(int argc, char *argv[])
     for(ysplit = 0; ysplit < height/8; ysplit++) {
         for(xsplit = 0; xsplit < width/8; xsplit++) {
             for(y=0; y<8; y++) {
-                for(x=0; x<8; x++) {
+                for(x=0; x<8; x+=2) {
                     blockInput[y][x] = original_image[y+yOffset][x+xOffset];
+                    blockInput[y][x+1] = original_image[y+yOffset][x+1+xOffset];
                 }
             }
             printf("Before :\n");

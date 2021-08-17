@@ -19,9 +19,10 @@ int main(int argc, char *argv[]){
     int y;
     int index = 0;
     for(y=0; y<height; y++) {
-        for(x=0; x<width; x++) {
+        for(x=0; x<width; x+=2) {
             original_image[y][x] = *(img + index);
-            index++;
+            original_image[y][x+1] = *(img + index+1);
+            index+=2;
         }
     }
     /*
